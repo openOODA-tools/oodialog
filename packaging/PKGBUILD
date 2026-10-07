@@ -1,0 +1,21 @@
+# Maintainer: openOODA-tools <ops@openooda.org>
+pkgname=oodialog-bin
+_pkgname=oodialog
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Renders interactive modal dialogues, input boxes, checklists, and file pickers."
+arch=('x86_64')
+url="https://github.com/openOODA-tools/oodialog"
+license=('Apache-2.0')
+depends=('glibc')
+provides=('oodialog')
+conflicts=('oodialog')
+source_x86_64=("${url}/releases/download/v${pkgver}/oodialog-linux-x86_64"
+               "uninstall.sh::https://raw.githubusercontent.com/openOODA-tools/${_pkgname}/v${pkgver}/uninstall.sh")
+sha256sums_x86_64=('SKIP'
+                   'SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/oodialog-linux-x86_64" "${pkgdir}/usr/bin/oodialog"
+    install -Dm755 uninstall.sh "${pkgdir}/usr/bin/oodialog-uninstall"
+}
