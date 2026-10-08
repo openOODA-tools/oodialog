@@ -1,0 +1,50 @@
+// # oodialog Terminal Canvas View Renderer
+//
+// Logline: Composes full terminal displays incorporating backtitle header bars, canvas backgrounds, and centered dialog boxes.
+//
+// Setup: Demands no ambient authority; consumes DialogConfig, MenuItem list, and theme settings.
+//
+// Beats:
+//   1. Render optional background backtitle banner spanning terminal width.
+//   2. Apply theme palette styling to box borders, titles, and text contents.
+//   3. Render centered dialog modal frame.
+//   4. Deliver unified screen rendering pipeline.
+
+import "core/dialog_types.oo";
+import "core/box_layout.oo";
+import "core/dialog_engine.oo";
+import "render/dialog_theme.oo";
+
+pub fn render_backtitle_bar(backtitle: String, theme: String, width: Int) -> String {
+    if chars_len(backtitle) == 0 {
+        return "";
+    }
+    let col: String = theme_backtitle(theme);
+    let rst: String = color_reset();
+    let pad_w: Int = if width > 20 { width } else { 80 };
+    let text: String = " " + backtitle + " ";
+    return col + pad_spaces(text, pad_w) + rst + "\n\n";
+}
+
+pub fn render_view(cfg: DialogConfig, items: List[MenuItem]) -> String {
+    let mut out: String = "";
+    let w: Int = resolve_width(cfg.width, 60, chars_len(cfg.title));
+
+    if chars_len(cfg.backtitle) > 0 {
+        out = out + render_backtitle_bar(cfg.backtitle, cfg.theme, w);
+    }
+
+    let b_col: String = theme_border(cfg.theme);
+    let rst: String = color_reset();
+
+    let raw_box: String = render_modal(cfg, items);
+
+    // Apply color accents
+    if cfg.theme != "monochrome" && chars_len(b_col) > 0 {
+        out = out + b_col + raw_box + rst;
+    } else {
+        out = out + raw_box;
+    }
+
+    return out;
+}

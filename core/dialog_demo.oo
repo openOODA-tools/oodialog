@@ -1,0 +1,91 @@
+// # oodialog Synthetic Modal Showcase Engine
+//
+// Logline: Builds synthetic showcase demonstration scenes across message boxes, confirmations, menus, checklists, and gauges.
+//
+// Setup: Demands no ambient authority; operates on pure immutable DialogConfig and MenuItem values.
+//
+// Beats:
+//   1. Build demonstration menu items modeling system administration tasks.
+//   2. Build demonstration checklist items modeling feature flags.
+//   3. Render showcase modal dialogs into a unified terminal demonstration document.
+//   4. Expose structured demo configurations for CLI and streaming MCP pipelines.
+
+import "core/dialog_types.oo";
+import "core/dialog_engine.oo";
+
+pub fn build_demo_menu_items() -> List[MenuItem] {
+    let mut items: List[MenuItem] = list_new();
+    items = list_push(items, MenuItem { tag: "1", item: "Network Interface Configuration", selected: true });
+    items = list_push(items, MenuItem { tag: "2", item: "Storage & Mount Point Inspector", selected: false });
+    items = list_push(items, MenuItem { tag: "3", item: "Process & Cgroup v2 Isolation", selected: false });
+    items = list_push(items, MenuItem { tag: "4", item: "Security Audit & Capability Tokens", selected: false });
+    return items;
+}
+
+pub fn build_demo_checklist_items() -> List[MenuItem] {
+    let mut items: List[MenuItem] = list_new();
+    items = list_push(items, MenuItem { tag: "STRICT_CAPS", item: "Enforce zero ambient authority tokens", selected: true });
+    items = list_push(items, MenuItem { tag: "PAGE_BOUNDS", item: "Verify Page Rule bounds (16-256 lines)", selected: true });
+    items = list_push(items, MenuItem { tag: "MCP_STDIO", item: "Enable JSON-RPC 2.0 streaming IPC", selected: true });
+    items = list_push(items, MenuItem { tag: "SELINUX_JRL", item: "Stream logs natively to journald", selected: false });
+    return items;
+}
+
+pub fn build_demo_document() -> String {
+    let mut out: String = "";
+    out = out + "================================================================================\n";
+    out = out + "                    oodialog 0.2.0 SOVEREIGN TUI SHOWCASE                      \n";
+    out = out + "================================================================================\n\n";
+
+    // 1. Message Box
+    let mut m_cfg: DialogConfig = default_dialog_config();
+    m_cfg.kind = "msgbox";
+    m_cfg.title = "SYSTEM NOTIFICATION";
+    m_cfg.text = "Welcome to openOODA sovereign userland. All running services operate under strict capability bounds.";
+    out = out + "[1] Message Box Widget:\n";
+    out = out + render_modal(m_cfg, list_new()) + "\n";
+
+    // 2. Yes/No Prompt
+    let mut y_cfg: DialogConfig = default_dialog_config();
+    y_cfg.kind = "yesno";
+    y_cfg.title = "SECURITY CONFIRMATION";
+    y_cfg.text = "Do you authorize elevated capability token delegation for container runtime initialization?";
+    out = out + "[2] Confirmation Yes/No Widget:\n";
+    out = out + render_modal(y_cfg, list_new()) + "\n";
+
+    // 3. Input Box
+    let mut in_cfg: DialogConfig = default_dialog_config();
+    in_cfg.kind = "inputbox";
+    in_cfg.title = "CLUSTER IDENTIFIER";
+    in_cfg.text = "Enter the sovereign target node identifier for this cluster realm:";
+    in_cfg.input_default = "node-alpha.openooda.local";
+    out = out + "[3] Input Box Widget:\n";
+    out = out + render_modal(in_cfg, list_new()) + "\n";
+
+    // 4. Menu Box
+    let mut menu_cfg: DialogConfig = default_dialog_config();
+    menu_cfg.kind = "menu";
+    menu_cfg.title = "MAIN ADMINISTRATIVE MENU";
+    menu_cfg.text = "Select an administrative task using arrow keys or numeric tag:";
+    out = out + "[4] Menu Widget:\n";
+    out = out + render_modal(menu_cfg, build_demo_menu_items()) + "\n";
+
+    // 5. Checklist Box
+    let mut chk_cfg: DialogConfig = default_dialog_config();
+    chk_cfg.kind = "checklist";
+    chk_cfg.title = "PLATFORM INVARIANTS";
+    chk_cfg.text = "Toggle active system compliance rules:";
+    out = out + "[5] Checklist Widget:\n";
+    out = out + render_modal(chk_cfg, build_demo_checklist_items()) + "\n";
+
+    // 6. Gauge
+    let mut g_cfg: DialogConfig = default_dialog_config();
+    g_cfg.kind = "gauge";
+    g_cfg.title = "COMPILATION PROGRESS";
+    g_cfg.text = "Building native openOODA executables with oodac...";
+    g_cfg.gauge_percent = 78;
+    out = out + "[6] Progress Gauge Widget:\n";
+    out = out + render_modal(g_cfg, list_new()) + "\n";
+
+    return out;
+}

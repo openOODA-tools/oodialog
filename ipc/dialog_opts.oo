@@ -1,0 +1,233 @@
+// # oodialog CLI Option Parser & Dispatcher
+//
+// Logline: Parses command-line arguments, widget configurations, menu item lists, and display options.
+//
+// Setup: Demands no ambient authority; parses List[String] argument vectors into CliAction records.
+//
+// Beats:
+//   1. Parse standard dialog widget flags (--msgbox, --yesno, --inputbox, --menu, --checklist, --gauge).
+//   2. Parse modal styling flags (--title, --backtitle, --theme, --ascii-lines, --defaultno).
+//   3. Extract trailing key-value item vectors for menus and checklists.
+//   4. Format user manuals and version information.
+
+import "core/dialog_types.oo";
+
+pub type CliAction = struct {
+    config: DialogConfig,
+    items: List[MenuItem],
+    is_mcp: Bool,
+    run_test: Bool,
+    show_help: Bool,
+    show_version: Bool
+};
+
+fn parse_int_val(s: String, def_v: Int) -> Int {
+    let n: Int = chars_len(s);
+    if n == 0 {
+        return def_v;
+    }
+    let mut val: Int = 0;
+    let mut i: Int = 0;
+    let mut found: Bool = false;
+    while i < n {
+        let ch: Int = byte_at(s, i);
+        if ch >= 48 && ch <= 57 {
+            val = val * 10 + (ch - 48);
+            found = true;
+        } else {
+            break;
+        }
+        i = i + 1;
+    }
+    if found {
+        return val;
+    }
+    return def_v;
+}
+
+pub fn print_help() {
+    println("Usage: oodialog [OPTIONS]... <--widget> [WIDGET_ARGS]...");
+    println("Sovereign terminal modal dialog and input box engine.");
+    println("");
+    println("Box Options:");
+    println("  --title <text>           Set modal frame title");
+    println("  --backtitle <text>       Set top canvas backtitle banner");
+    println("  --theme <name>           ANSI palette (ember, ocean, matrix, cyber, monochrome)");
+    println("  --ascii-lines            Use plain ASCII box borders (+, -, |) instead of Unicode");
+    println("  --defaultno              Set 'No' as default focus in yesno dialogs");
+    println("");
+    println("Widgets:");
+    println("  --msgbox <text> [h] [w]                      Display informative message box");
+    println("  --yesno <text> [h] [w]                       Prompt for confirmation (exit 0=Yes, 1=No)");
+    println("  --infobox <text> [h] [w]                     Display message without buttons");
+    println("  --inputbox <text> [h] [w] [init]             Prompt for user text input");
+    println("  --menu <text> [h] [w] [mh] tag1 item1 ...    Display select menu list");
+    println("  --checklist <text> [h] [w] [lh] t i s ...    Display multi-select checklist");
+    println("  --radiolist <text> [h] [w] [lh] t i s ...    Display single-select radiolist");
+    println("  --gauge <text> [h] [w] [percent]             Display progress gauge bar");
+    println("");
+    println("General Options:");
+    println("  -j, --json               Output modal metadata or result in JSON format");
+    println("  -D, --demo               Run interactive showcase of all modal dialog types");
+    println("      --mcp                Launch streaming MCP JSON-RPC 2.0 stdio server");
+    println("      --help               Display this help and exit");
+    println("  -v, --version            Output version information and exit");
+}
+
+pub fn print_version() {
+    println("oodialog 0.2.0 (openOODA sovereign TUI modal engine)");
+}
+
+pub fn parse_cli_args(args: List[String]) -> CliAction {
+    let mut cfg: DialogConfig = default_dialog_config();
+    let mut items: List[MenuItem] = list_new();
+    let mut is_mcp: Bool = false;
+    let mut run_test: Bool = false;
+    let mut show_help: Bool = false;
+    let mut show_ver: Bool = false;
+
+    let n: Int = list_len(args);
+    let mut i: Int = 0;
+
+    while i < n {
+        let arg: String = list_get(args, i);
+
+        if arg == "--help" || arg == "-h" {
+            show_help = true;
+        } else if arg == "--version" || arg == "-v" {
+            show_ver = true;
+        } else if arg == "--test" {
+            run_test = true;
+        } else if arg == "--mcp" {
+            is_mcp = true;
+        } else if arg == "-j" || arg == "--json" {
+            cfg.json_output = true;
+        } else if arg == "-D" || arg == "--demo" {
+            cfg.demo_mode = true;
+        } else if arg == "--ascii-lines" {
+            cfg.ascii_lines = true;
+        } else if arg == "--defaultno" {
+            cfg.default_no = true;
+        } else if arg == "--title" && i + 1 < n {
+            i = i + 1;
+            cfg.title = list_get(args, i);
+        } else if arg == "--backtitle" && i + 1 < n {
+            i = i + 1;
+            cfg.backtitle = list_get(args, i);
+        } else if arg == "--theme" && i + 1 < n {
+            i = i + 1;
+            cfg.theme = list_get(args, i);
+        } else if arg == "--msgbox" && i + 1 < n {
+            cfg.kind = "msgbox";
+            i = i + 1;
+            cfg.text = list_get(args, i);
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.height = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.width = parse_int_val(list_get(args, i), 0);
+            }
+        } else if arg == "--yesno" && i + 1 < n {
+            cfg.kind = "yesno";
+            i = i + 1;
+            cfg.text = list_get(args, i);
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.height = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.width = parse_int_val(list_get(args, i), 0);
+            }
+        } else if arg == "--infobox" && i + 1 < n {
+            cfg.kind = "infobox";
+            i = i + 1;
+            cfg.text = list_get(args, i);
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.height = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.width = parse_int_val(list_get(args, i), 0);
+            }
+        } else if arg == "--inputbox" && i + 1 < n {
+            cfg.kind = "inputbox";
+            i = i + 1;
+            cfg.text = list_get(args, i);
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.height = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.width = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.input_default = list_get(args, i);
+            }
+        } else if arg == "--gauge" && i + 1 < n {
+            cfg.kind = "gauge";
+            i = i + 1;
+            cfg.text = list_get(args, i);
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.height = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.width = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.gauge_percent = parse_int_val(list_get(args, i), 0);
+            }
+        } else if (arg == "--menu" || arg == "--checklist" || arg == "--radiolist") && i + 1 < n {
+            cfg.kind = if arg == "--checklist" { "checklist" } else if arg == "--radiolist" { "radiolist" } else { "menu" };
+            i = i + 1;
+            cfg.text = list_get(args, i);
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.height = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.width = parse_int_val(list_get(args, i), 0);
+            }
+            if i + 1 < n && !str_starts_with(list_get(args, i + 1), "-") {
+                i = i + 1;
+                cfg.list_height = parse_int_val(list_get(args, i), 0);
+            }
+            let step: Int = if cfg.kind == "menu" { 2 } else { 3 };
+            while i + step <= n {
+                let tag_val: String = list_get(args, i + 1);
+                if str_starts_with(tag_val, "--") {
+                    break;
+                }
+                let item_val: String = list_get(args, i + 2);
+                let mut sel: Bool = false;
+                if step == 3 {
+                    let stat_val: String = list_get(args, i + 3);
+                    if stat_val == "on" || stat_val == "ON" || stat_val == "1" || stat_val == "true" {
+                        sel = true;
+                    }
+                }
+                items = list_push(items, MenuItem { tag: tag_val, item: item_val, selected: sel });
+                i = i + step;
+            }
+        }
+        i = i + 1;
+    }
+
+    return CliAction {
+        config: cfg,
+        items: items,
+        is_mcp: is_mcp,
+        run_test: run_test,
+        show_help: show_help,
+        show_version: show_ver
+    };
+}

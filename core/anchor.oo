@@ -1,0 +1,131 @@
+// # oodialog Core Subsystem Test Harness
+//
+// Logline: In-memory verification suite validating dialog types, text wrapping, box rendering, and showcase demos.
+//
+// Setup: Demands no ambient authority; verifies core formatting routines deterministically.
+//
+// Beats:
+//   1. Verify default dialog configuration properties.
+//   2. Verify word splitting, line wrapping, and geometry calculations.
+//   3. Verify rendering output for message boxes, yes/no queries, and menus.
+//   4. Verify synthetic showcase demonstration generation.
+
+import "core/dialog_types.oo";
+import "core/box_layout.oo";
+import "core/dialog_engine.oo";
+import "core/dialog_demo.oo";
+
+fn test_types() -> Bool {
+    let cfg: DialogConfig = default_dialog_config();
+    if cfg.kind != "msgbox" || cfg.default_no || cfg.ascii_lines {
+        return false;
+    }
+    let item: MenuItem = MenuItem { tag: "TAG1", item: "Item description", selected: true };
+    if item.tag != "TAG1" || !item.selected {
+        return false;
+    }
+    return true;
+}
+
+fn test_box_layout() -> Bool {
+    let words: List[String] = split_words("one two three  four");
+    if list_len(words) != 4 {
+        return false;
+    }
+
+    let wrapped: List[String] = wrap_text_lines("Hello world from the openOODA sovereign userland platform", 20);
+    if list_len(wrapped) < 3 {
+        return false;
+    }
+
+    let w: Int = resolve_width(0, 30, 10);
+    if w < 48 {
+        return false;
+    }
+
+    let centered: String = center_text("OK", 10);
+    if chars_len(centered) != 10 {
+        return false;
+    }
+
+    return true;
+}
+
+fn test_engine_renders() -> Bool {
+    let mut cfg: DialogConfig = default_dialog_config();
+    cfg.title = "TEST TITLE";
+    cfg.text = "Sample dialog text for testing layout borders and buttons.";
+
+    let msg: String = render_msgbox(cfg);
+    if !str_contains(msg, "TEST TITLE") || !str_contains(msg, "<  OK  >") {
+        return false;
+    }
+
+    let yn: String = render_yesno(cfg);
+    if !str_contains(yn, "<  Yes  >") || !str_contains(yn, "<  No  >") {
+        return false;
+    }
+
+    let in_box: String = render_inputbox(cfg);
+    if !str_contains(in_box, "< Cancel >") {
+        return false;
+    }
+
+    let mut menu_cfg: DialogConfig = default_dialog_config();
+    menu_cfg.kind = "menu";
+    menu_cfg.title = "MENU";
+    let menu: String = render_menu(menu_cfg, build_demo_menu_items());
+    if !str_contains(menu, "Network Interface") || !str_contains(menu, "< Select >") {
+        return false;
+    }
+
+    let mut g_cfg: DialogConfig = default_dialog_config();
+    g_cfg.kind = "gauge";
+    g_cfg.gauge_percent = 50;
+    let g: String = render_gauge(g_cfg);
+    if !str_contains(g, "50%") {
+        return false;
+    }
+
+    return true;
+}
+
+fn test_demo_doc() -> Bool {
+    let doc: String = build_demo_document();
+    if !str_contains(doc, "oodialog 0.2.0") || !str_contains(doc, "Message Box Widget") {
+        return false;
+    }
+    if !str_contains(doc, "Checklist Widget") || !str_contains(doc, "Progress Gauge Widget") {
+        return false;
+    }
+    return true;
+}
+
+pub fn run_core_tests() -> Bool {
+    print("Running oodialog core tests...\n");
+    if !test_types() {
+        print("  FAIL: dialog types test\n");
+        return false;
+    }
+    print("  ✓ dialog types tests passed\n");
+
+    if !test_box_layout() {
+        print("  FAIL: box layout test\n");
+        return false;
+    }
+    print("  ✓ box layout tests passed\n");
+
+    if !test_engine_renders() {
+        print("  FAIL: engine renders test\n");
+        return false;
+    }
+    print("  ✓ engine renders tests passed\n");
+
+    if !test_demo_doc() {
+        print("  FAIL: demo doc test\n");
+        return false;
+    }
+    print("  ✓ demo doc tests passed\n");
+
+    return true;
+}

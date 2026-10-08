@@ -1,0 +1,121 @@
+// # oodialog IPC Subsystem Test Harness
+//
+// Logline: In-memory verification suite validating CLI argument parsing, JSON field extraction, and MCP protocol framing.
+//
+// Setup: Demands no ambient authority; exercises CLI parsing and JSON-RPC dispatching in memory.
+//
+// Beats:
+//   1. Verify JSON substring search and field extraction routines.
+//   2. Verify CLI argument parsing across diverse modal widget parameters.
+//   3. Verify MCP initialization and tool catalog frames.
+//   4. Verify MCP tool call dispatching for message boxes and demo showcase.
+
+import "core/dialog_types.oo";
+import "ipc/json_field.oo";
+import "ipc/dialog_opts.oo";
+import "ipc/mcp_serve.oo";
+
+fn test_json_fields() -> Bool {
+    let raw: String = "{\"tool\":\"oodialog\",\"interactive\":true,\"timeout\":30,\"disabled\":false}";
+    if json_extract_str_field(raw, "tool") != "oodialog" {
+        return false;
+    }
+    if !json_extract_bool_field(raw, "interactive", false) {
+        return false;
+    }
+    if json_extract_bool_field(raw, "disabled", true) {
+        return false;
+    }
+    if json_extract_int_field(raw, "timeout", 0) != 30 {
+        return false;
+    }
+    let esc: String = json_escape("box\nmodal\t\"quoted\"");
+    if !str_contains(esc, "\\n") || !str_contains(esc, "\\\"") {
+        return false;
+    }
+    return true;
+}
+
+fn test_cli_opts() -> Bool {
+    let mut args: List[String] = list_new();
+    args = list_push(args, "--title");
+    args = list_push(args, "Test Title");
+    args = list_push(args, "--backtitle");
+    args = list_push(args, "Back Banner");
+    args = list_push(args, "--theme");
+    args = list_push(args, "matrix");
+    args = list_push(args, "--ascii-lines");
+    args = list_push(args, "--defaultno");
+    args = list_push(args, "--yesno");
+    args = list_push(args, "Are you sure?");
+    args = list_push(args, "10");
+    args = list_push(args, "40");
+
+    let act: CliAction = parse_cli_args(args);
+    if act.config.kind != "yesno" || act.config.title != "Test Title" {
+        return false;
+    }
+    if act.config.backtitle != "Back Banner" || act.config.theme != "matrix" {
+        return false;
+    }
+    if !act.config.ascii_lines || !act.config.default_no {
+        return false;
+    }
+    if act.config.height != 10 || act.config.width != 40 {
+        return false;
+    }
+
+    return true;
+}
+
+fn test_mcp_frames() -> Bool {
+    let init_res: String = render_mcp_init("\"test-1\"");
+    if !str_contains(init_res, "\"name\":\"oodialog\"") || !str_contains(init_res, "\"id\":\"test-1\"") {
+        return false;
+    }
+
+    let list_res: String = render_mcp_tools_list("\"test-2\"");
+    if !str_contains(list_res, "dialog_msgbox") || !str_contains(list_res, "dialog_yesno") {
+        return false;
+    }
+    if !str_contains(list_res, "dialog_menu") || !str_contains(list_res, "dialog_demo") {
+        return false;
+    }
+
+    let demo_req: String = "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"dialog_demo\",\"arguments\":{}}}";
+    let demo_res: String = handle_mcp_message(demo_req);
+    if !str_contains(demo_res, "oodialog 0.2.0") || !str_contains(demo_res, "Message Box Widget") {
+        return false;
+    }
+
+    let msg_req: String = "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"dialog_msgbox\",\"arguments\":{\"title\":\"HELLO\",\"text\":\"Testing MCP box\"}}}";
+    let msg_res: String = handle_mcp_message(msg_req);
+    if !str_contains(msg_res, "HELLO") || !str_contains(msg_res, "<  OK  >") {
+        return false;
+    }
+
+    return true;
+}
+
+pub fn run_ipc_tests() -> Bool {
+    print("Running oodialog ipc tests...\n");
+    if !test_json_fields() {
+        print("  FAIL: json fields test\n");
+        return false;
+    }
+    print("  ✓ json fields tests passed\n");
+
+    if !test_cli_opts() {
+        print("  FAIL: cli opts test\n");
+        return false;
+    }
+    print("  ✓ cli opts tests passed\n");
+
+    if !test_mcp_frames() {
+        print("  FAIL: mcp frames test\n");
+        return false;
+    }
+    print("  ✓ mcp frames tests passed\n");
+
+    return true;
+}

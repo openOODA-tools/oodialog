@@ -1,0 +1,163 @@
+// # oodialog Streaming MCP Server
+//
+// Logline: JSON-RPC 2.0 stdio server exposing interactive modal dialogues, prompts, menus, and progress gauges.
+//
+// Setup: Bridges standard input/output streaming JSON-RPC to the dialog rendering engine using bounded capability tokens.
+//
+// Beats:
+//   1. Handle MCP initialize handshake with server metadata and capability declarations.
+//   2. Expose tools/list catalogue with seven sovereign dialog modal tools.
+//   3. Dispatch tools/call for msgbox, yesno, menu, checklist, gauge, render, and demo.
+//   4. Deliver streaming JSON-RPC responses over standard output.
+
+import "core/dialog_types.oo";
+import "core/dialog_demo.oo";
+import "render/dialog_view.oo";
+import "ipc/json_field.oo";
+
+fn build_error(id: String, code: Int, msg: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"error\":{\"code\":"
+        + to_string(code) + ",\"message\":\"" + json_escape(msg) + "\"}}\n";
+}
+
+fn build_tool_result(id: String, text: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\""
+        + json_escape(text) + "\"}]}}\n";
+}
+
+pub fn render_mcp_init(id: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id
+        + ",\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"oodialog\",\"version\":\"0.2.0\"}}}\n";
+}
+
+pub fn render_mcp_tools_list(id: String) -> String {
+    let mut out: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"tools\":[";
+    out = out + "{\"name\":\"dialog_render\",\"description\":\"Universal dialog renderer for any widget type.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"theme\":{\"type\":\"string\"},\"ascii_lines\":{\"type\":\"boolean\"}},\"required\":[\"kind\",\"text\"]}}";
+    out = out + ",{\"name\":\"dialog_msgbox\",\"description\":\"Render an informative modal message box.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"theme\":{\"type\":\"string\"}},\"required\":[\"text\"]}}";
+    out = out + ",{\"name\":\"dialog_yesno\",\"description\":\"Render a confirmation modal prompt with Yes/No buttons.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"default_no\":{\"type\":\"boolean\"},\"theme\":{\"type\":\"string\"}},\"required\":[\"text\"]}}";
+    out = out + ",{\"name\":\"dialog_menu\",\"description\":\"Render an administrative task menu.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"theme\":{\"type\":\"string\"}}}}";
+    out = out + ",{\"name\":\"dialog_checklist\",\"description\":\"Render a multi-select feature checklist.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"theme\":{\"type\":\"string\"}}}}";
+    out = out + ",{\"name\":\"dialog_gauge\",\"description\":\"Render a percentage-based progress gauge bar.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"title\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"percent\":{\"type\":\"integer\"},\"theme\":{\"type\":\"string\"}},\"required\":[\"percent\"]}}";
+    out = out + ",{\"name\":\"dialog_demo\",\"description\":\"Return comprehensive multi-modal dialog demonstration document.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}";
+    out = out + "]}}\n";
+    return out;
+}
+
+pub fn handle_mcp_call(id: String, tool_name: String, req: String) -> String {
+    let mut cfg: DialogConfig = default_dialog_config();
+    cfg.title = json_extract_str_field(req, "title");
+    cfg.text = json_extract_str_field(req, "text");
+    let thm: String = json_extract_str_field(req, "theme");
+    if chars_len(thm) > 0 {
+        cfg.theme = thm;
+    }
+    cfg.ascii_lines = json_extract_bool_field(req, "ascii_lines", false);
+
+    if tool_name == "dialog_render" {
+        cfg.kind = json_extract_str_field(req, "kind");
+        let rendered: String = render_view(cfg, list_new());
+        return build_tool_result(id, rendered);
+    }
+
+    if tool_name == "dialog_msgbox" {
+        cfg.kind = "msgbox";
+        let rendered: String = render_view(cfg, list_new());
+        return build_tool_result(id, rendered);
+    }
+
+    if tool_name == "dialog_yesno" {
+        cfg.kind = "yesno";
+        cfg.default_no = json_extract_bool_field(req, "default_no", false);
+        let rendered: String = render_view(cfg, list_new());
+        return build_tool_result(id, rendered);
+    }
+
+    if tool_name == "dialog_menu" {
+        cfg.kind = "menu";
+        let items: List[MenuItem] = build_demo_menu_items();
+        let rendered: String = render_view(cfg, items);
+        return build_tool_result(id, rendered);
+    }
+
+    if tool_name == "dialog_checklist" {
+        cfg.kind = "checklist";
+        let items: List[MenuItem] = build_demo_checklist_items();
+        let rendered: String = render_view(cfg, items);
+        return build_tool_result(id, rendered);
+    }
+
+    if tool_name == "dialog_gauge" {
+        cfg.kind = "gauge";
+        cfg.gauge_percent = json_extract_int_field(req, "percent", 50);
+        let rendered: String = render_view(cfg, list_new());
+        return build_tool_result(id, rendered);
+    }
+
+    if tool_name == "dialog_demo" {
+        return build_tool_result(id, build_demo_document());
+    }
+
+    return build_error(id, -32601, "Unknown tool: " + tool_name);
+}
+
+pub fn handle_mcp_message(req: String) -> String {
+    let id_str: String = json_extract_str_field(req, "id");
+    let id_int: Int = json_extract_int_field(req, "id", -1);
+    let id: String = if chars_len(id_str) > 0 {
+        "\"" + id_str + "\""
+    } else if id_int >= 0 {
+        to_string(id_int)
+    } else {
+        "1"
+    };
+    let method: String = json_extract_str_field(req, "method");
+
+    if method == "initialize" {
+        return render_mcp_init(id);
+    }
+    if method == "notifications/initialized" {
+        return "";
+    }
+    if method == "tools/list" {
+        return render_mcp_tools_list(id);
+    }
+    if method == "tools/call" {
+        let tool_name: String = json_extract_str_field(req, "name");
+        return handle_mcp_call(id, tool_name, req);
+    }
+    if method == "shutdown" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":null}\n";
+    }
+    return build_error(id, -32601, "Method not found: " + method);
+}
+
+pub fn run_mcp_server(fr: &FsReadCap) {
+    let mut buf: String = "";
+    let mut running: Bool = true;
+    while running {
+        let r: Result[String, String] = oo_read_stdin_chunk(fr, 4096);
+        if !r.is_ok() {
+            running = false;
+        } else {
+            let chunk: String = match r { Ok(s) => s, Err(_) => "" };
+            if chars_len(chunk) == 0 {
+                running = false;
+            } else {
+                buf = buf + chunk;
+                let mut nl_pos: Int = find_sub_char(buf, "\n");
+                while nl_pos >= 0 {
+                    let line: String = str_slice(buf, 0, nl_pos);
+                    buf = str_slice(buf, nl_pos + 1, chars_len(buf));
+                    let trimmed: String = str_trim(line);
+                    if chars_len(trimmed) > 0 {
+                        let resp: String = handle_mcp_message(trimmed);
+                        if chars_len(resp) > 0 {
+                            print(resp);
+                        }
+                    }
+                    nl_pos = find_sub_char(buf, "\n");
+                }
+            }
+        }
+    }
+}

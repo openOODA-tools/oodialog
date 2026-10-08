@@ -1,0 +1,97 @@
+// # oodialog ANSI Terminal Theme Palette Engine
+//
+// Logline: Stylized ANSI color palettes and widget component highlighting for terminal dialog boxes.
+//
+// Setup: Demands no ambient authority; outputs ANSI escape sequences based on theme names.
+//
+// Beats:
+//   1. Define palette colors for ember, ocean, matrix, cyber, and monochrome themes.
+//   2. Provide contextual styling for box borders, modal titles, and body texts.
+//   3. Highlight interactive buttons and active focus states.
+//   4. Reset styling gracefully for strict terminal etiquette.
+
+pub fn color_reset() -> String {
+    return "\x1b[0m";
+}
+
+pub fn theme_border(theme: String) -> String {
+    if theme == "ocean" {
+        return "\x1b[36m"; // Cyan
+    }
+    if theme == "matrix" {
+        return "\x1b[32m"; // Green
+    }
+    if theme == "cyber" {
+        return "\x1b[35m"; // Magenta
+    }
+    if theme == "monochrome" {
+        return "";
+    }
+    // Default ember: Gold / Yellow
+    return "\x1b[33m";
+}
+
+pub fn theme_title(theme: String) -> String {
+    if theme == "ocean" {
+        return "\x1b[1;36m"; // Bold Cyan
+    }
+    if theme == "matrix" {
+        return "\x1b[1;32m"; // Bold Green
+    }
+    if theme == "cyber" {
+        return "\x1b[1;35m"; // Bold Magenta
+    }
+    if theme == "monochrome" {
+        return "\x1b[1m";    // Bold
+    }
+    // Default ember: Bold Yellow
+    return "\x1b[1;33m";
+}
+
+pub fn theme_text(theme: String) -> String {
+    if theme == "monochrome" {
+        return "";
+    }
+    return "\x1b[37m"; // White
+}
+
+pub fn theme_btn_active(theme: String) -> String {
+    if theme == "ocean" {
+        return "\x1b[1;30;46m"; // Black on Cyan
+    }
+    if theme == "matrix" {
+        return "\x1b[1;30;42m"; // Black on Green
+    }
+    if theme == "cyber" {
+        return "\x1b[1;30;45m"; // Black on Magenta
+    }
+    if theme == "monochrome" {
+        return "\x1b[7m";       // Inverted
+    }
+    // Default ember: Black on Yellow
+    return "\x1b[1;30;43m";
+}
+
+pub fn theme_btn_inactive(theme: String) -> String {
+    if theme == "monochrome" {
+        return "";
+    }
+    return "\x1b[90m"; // Muted Gray
+}
+
+pub fn theme_backtitle(theme: String) -> String {
+    if theme == "ocean" {
+        return "\x1b[1;37;44m"; // White on Blue
+    }
+    if theme == "matrix" {
+        return "\x1b[1;30;42m"; // Black on Green
+    }
+    if theme == "cyber" {
+        return "\x1b[1;37;45m"; // White on Magenta
+    }
+    if theme == "monochrome" {
+        return "\x1b[1;7m";
+    }
+    // Default ember: White on Dark Red/Brown
+    return "\x1b[1;37;41m";
+}

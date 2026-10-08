@@ -1,0 +1,227 @@
+// # oodialog Modal Box Rendering Engine
+//
+// Logline: Generates stylized terminal modal dialogue frames for message boxes, yes/no queries, inputs, menus, and progress gauges.
+//
+// Setup: Demands no ambient authority; produces structured text boxes from DialogConfig and MenuItem lists.
+//
+// Beats:
+//   1. Assemble top border with optional embedded modal title header.
+//   2. Render body lines padded with vertical side borders.
+//   3. Render interactive buttons (OK, Cancel, Yes, No) with active indicator highlights.
+//   4. Deliver unified render_modal dispatcher supporting all dialog widget types.
+
+import "core/dialog_types.oo";
+import "core/box_layout.oo";
+
+fn build_top_border(title: String, width: Int, ascii: Bool) -> String {
+    let tl: String = if ascii { "+" } else { "┌" };
+    let tr: String = if ascii { "+" } else { "┐" };
+    let h: String = if ascii { "-" } else { "─" };
+
+    if chars_len(title) == 0 {
+        let mut out: String = tl;
+        let mut i: Int = 0;
+        while i < width - 2 {
+            out = out + h;
+            i = i + 1;
+        }
+        return out + tr;
+    }
+
+    let t_str: String = " " + title + " ";
+    let tl_len: Int = chars_len(t_str);
+    let rem: Int = width - 4 - tl_len;
+    let left_h: Int = if rem > 2 { 2 } else { 0 };
+    let right_h: Int = if rem - left_h > 0 { rem - left_h } else { 0 };
+
+    let mut out: String = tl;
+    let mut i: Int = 0;
+    while i < left_h {
+        out = out + h;
+        i = i + 1;
+    }
+    out = out + t_str;
+    let mut j: Int = 0;
+    while j < right_h {
+        out = out + h;
+        j = j + 1;
+    }
+    return out + tr;
+}
+
+fn build_bottom_border(width: Int, ascii: Bool) -> String {
+    let bl: String = if ascii { "+" } else { "└" };
+    let br: String = if ascii { "+" } else { "┘" };
+    let h: String = if ascii { "-" } else { "─" };
+    let mut out: String = bl;
+    let mut i: Int = 0;
+    while i < width - 2 {
+        out = out + h;
+        i = i + 1;
+    }
+    return out + br;
+}
+
+fn format_row(content: String, width: Int, ascii: Bool) -> String {
+    let v: String = if ascii { "|" } else { "│" };
+    let inner_w: Int = width - 4;
+    return v + " " + pad_spaces(content, inner_w) + " " + v;
+}
+
+pub fn render_msgbox(cfg: DialogConfig) -> String {
+    let lines: List[String] = wrap_text_lines(cfg.text, 60);
+    let n_lines: Int = list_len(lines);
+    let w: Int = resolve_width(cfg.width, 60, chars_len(cfg.title));
+    let inner_w: Int = w - 4;
+
+    let mut out: String = build_top_border(cfg.title, w, cfg.ascii_lines) + "\n";
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+
+    let mut i: Int = 0;
+    while i < n_lines {
+        out = out + format_row(list_get(lines, i), w, cfg.ascii_lines) + "\n";
+        i = i + 1;
+    }
+
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    let btn: String = center_text("<  OK  >", inner_w);
+    out = out + format_row(btn, w, cfg.ascii_lines) + "\n";
+    out = out + build_bottom_border(w, cfg.ascii_lines) + "\n";
+    return out;
+}
+
+pub fn render_yesno(cfg: DialogConfig) -> String {
+    let lines: List[String] = wrap_text_lines(cfg.text, 60);
+    let n_lines: Int = list_len(lines);
+    let w: Int = resolve_width(cfg.width, 60, chars_len(cfg.title));
+    let inner_w: Int = w - 4;
+
+    let mut out: String = build_top_border(cfg.title, w, cfg.ascii_lines) + "\n";
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+
+    let mut i: Int = 0;
+    while i < n_lines {
+        out = out + format_row(list_get(lines, i), w, cfg.ascii_lines) + "\n";
+        i = i + 1;
+    }
+
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    let btns: String = if cfg.default_no {
+        "<  Yes  >      [<  No  >]"
+    } else {
+        "[<  Yes  >]      <  No  >"
+    };
+    out = out + format_row(center_text(btns, inner_w), w, cfg.ascii_lines) + "\n";
+    out = out + build_bottom_border(w, cfg.ascii_lines) + "\n";
+    return out;
+}
+
+pub fn render_inputbox(cfg: DialogConfig) -> String {
+    let lines: List[String] = wrap_text_lines(cfg.text, 60);
+    let n_lines: Int = list_len(lines);
+    let w: Int = resolve_width(cfg.width, 60, chars_len(cfg.title));
+    let inner_w: Int = w - 4;
+
+    let mut out: String = build_top_border(cfg.title, w, cfg.ascii_lines) + "\n";
+    let mut i: Int = 0;
+    while i < n_lines {
+        out = out + format_row(list_get(lines, i), w, cfg.ascii_lines) + "\n";
+        i = i + 1;
+    }
+
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    let input_field: String = "[" + pad_spaces(cfg.input_default, inner_w - 4) + "_]";
+    out = out + format_row(input_field, w, cfg.ascii_lines) + "\n";
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    out = out + format_row(center_text("<  OK  >      < Cancel >", inner_w), w, cfg.ascii_lines) + "\n";
+    out = out + build_bottom_border(w, cfg.ascii_lines) + "\n";
+    return out;
+}
+
+pub fn render_menu(cfg: DialogConfig, items: List[MenuItem]) -> String {
+    let w: Int = resolve_width(cfg.width, 60, chars_len(cfg.title));
+    let inner_w: Int = w - 4;
+    let mut out: String = build_top_border(cfg.title, w, cfg.ascii_lines) + "\n";
+
+    if chars_len(cfg.text) > 0 {
+        let lines: List[String] = wrap_text_lines(cfg.text, 60);
+        let n_lines: Int = list_len(lines);
+        let mut i: Int = 0;
+        while i < n_lines {
+            out = out + format_row(list_get(lines, i), w, cfg.ascii_lines) + "\n";
+            i = i + 1;
+        }
+        out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    }
+
+    let n_items: Int = list_len(items);
+    let mut j: Int = 0;
+    while j < n_items {
+        let m: MenuItem = list_get(items, j);
+        let prefix: String = if cfg.kind == "checklist" {
+            if m.selected { "[X] " } else { "[ ] " }
+        } else if cfg.kind == "radiolist" {
+            if m.selected { "(*) " } else { "( ) " }
+        } else {
+            "> "
+        };
+        let row_txt: String = prefix + pad_spaces(m.tag, 10) + " " + m.item;
+        out = out + format_row(row_txt, w, cfg.ascii_lines) + "\n";
+        j = j + 1;
+    }
+
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    out = out + format_row(center_text("< Select >      < Cancel >", inner_w), w, cfg.ascii_lines) + "\n";
+    out = out + build_bottom_border(w, cfg.ascii_lines) + "\n";
+    return out;
+}
+
+pub fn render_gauge(cfg: DialogConfig) -> String {
+    let w: Int = resolve_width(cfg.width, 60, chars_len(cfg.title));
+    let inner_w: Int = w - 4;
+    let bar_w: Int = inner_w - 8;
+    let pct: Int = if cfg.gauge_percent > 100 { 100 } else if cfg.gauge_percent < 0 { 0 } else { cfg.gauge_percent };
+
+    let mut fill: Int = pct * bar_w / 100;
+    let mut bar: String = "";
+    let mut i: Int = 0;
+    while i < fill {
+        bar = bar + "=";
+        i = i + 1;
+    }
+    if fill < bar_w {
+        bar = bar + ">";
+        fill = fill + 1;
+    }
+    while fill < bar_w {
+        bar = bar + " ";
+        fill = fill + 1;
+    }
+
+    let mut out: String = build_top_border(cfg.title, w, cfg.ascii_lines) + "\n";
+    if chars_len(cfg.text) > 0 {
+        out = out + format_row(cfg.text, w, cfg.ascii_lines) + "\n";
+        out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    }
+    let bar_line: String = "[" + bar + "] " + to_string(pct) + "%";
+    out = out + format_row(center_text(bar_line, inner_w), w, cfg.ascii_lines) + "\n";
+    out = out + format_row("", w, cfg.ascii_lines) + "\n";
+    out = out + build_bottom_border(w, cfg.ascii_lines) + "\n";
+    return out;
+}
+
+pub fn render_modal(cfg: DialogConfig, items: List[MenuItem]) -> String {
+    if cfg.kind == "yesno" {
+        return render_yesno(cfg);
+    }
+    if cfg.kind == "inputbox" {
+        return render_inputbox(cfg);
+    }
+    if cfg.kind == "menu" || cfg.kind == "checklist" || cfg.kind == "radiolist" {
+        return render_menu(cfg, items);
+    }
+    if cfg.kind == "gauge" {
+        return render_gauge(cfg);
+    }
+    return render_msgbox(cfg);
+}

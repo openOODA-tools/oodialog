@@ -1,0 +1,133 @@
+// # oodialog Box Geometry & Text Wrapping Engine
+//
+// Logline: Calculates bounding box dimensions, wraps paragraphs into bounded lines, and resolves framing characters.
+//
+// Setup: Demands no ambient authority; operates on immutable geometry inputs and strings.
+//
+// Beats:
+//   1. Word-wrap multiline text paragraphs into bounded display lines.
+//   2. Calculate dynamic modal dimensions based on text length and widget requirements.
+//   3. Provide Unicode and ASCII box-drawing border glyphs.
+//   4. Deliver line padding and string centering utilities.
+
+pub fn split_words(s: String) -> List[String] {
+    let mut words: List[String] = list_new();
+    let n: Int = chars_len(s);
+    let mut start: Int = -1;
+    let mut i: Int = 0;
+    while i < n {
+        let ch: Int = byte_at(s, i);
+        if ch == 32 || ch == 9 || ch == 10 || ch == 13 {
+            if start >= 0 {
+                words = list_push(words, str_slice(s, start, i));
+                start = -1;
+            }
+        } else {
+            if start < 0 {
+                start = i;
+            }
+        }
+        i = i + 1;
+    }
+    if start >= 0 {
+        words = list_push(words, str_slice(s, start, n));
+    }
+    return words;
+}
+
+pub fn wrap_text_lines(text: String, max_width: Int) -> List[String] {
+    let mut lines: List[String] = list_new();
+    let words: List[String] = split_words(text);
+    let n_words: Int = list_len(words);
+    if n_words == 0 {
+        return lines;
+    }
+
+    let limit: Int = if max_width > 10 { max_width } else { 40 };
+    let mut cur_line: String = "";
+    let mut i: Int = 0;
+
+    while i < n_words {
+        let w: String = list_get(words, i);
+        let wl: Int = chars_len(w);
+        let cl: Int = chars_len(cur_line);
+
+        if cl == 0 {
+            cur_line = w;
+        } else if cl + 1 + wl <= limit {
+            cur_line = cur_line + " " + w;
+        } else {
+            lines = list_push(lines, cur_line);
+            cur_line = w;
+        }
+        i = i + 1;
+    }
+
+    if chars_len(cur_line) > 0 {
+        lines = list_push(lines, cur_line);
+    }
+    return lines;
+}
+
+pub fn resolve_width(user_w: Int, text_max: Int, title_len: Int) -> Int {
+    if user_w > 0 {
+        return user_w;
+    }
+    let mut req: Int = text_max + 6;
+    if title_len + 8 > req {
+        req = title_len + 8;
+    }
+    if req < 48 {
+        req = 48;
+    }
+    if req > 78 {
+        req = 78;
+    }
+    return req;
+}
+
+pub fn resolve_height(user_h: Int, content_lines: Int, extra_rows: Int) -> Int {
+    if user_h > 0 {
+        return user_h;
+    }
+    let mut req: Int = content_lines + extra_rows + 4;
+    if req < 8 {
+        req = 8;
+    }
+    if req > 24 {
+        req = 24;
+    }
+    return req;
+}
+
+pub fn pad_spaces(s: String, target_len: Int) -> String {
+    let l: Int = chars_len(s);
+    let mut out: String = s;
+    let mut i: Int = l;
+    while i < target_len {
+        out = out + " ";
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn center_text(s: String, width: Int) -> String {
+    let l: Int = chars_len(s);
+    if l >= width {
+        return s;
+    }
+    let left_pad: Int = (width - l) / 2;
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < left_pad {
+        out = out + " ";
+        i = i + 1;
+    }
+    out = out + s;
+    let mut j: Int = chars_len(out);
+    while j < width {
+        out = out + " ";
+        j = j + 1;
+    }
+    return out;
+}

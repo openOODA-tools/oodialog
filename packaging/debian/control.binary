@@ -1,0 +1,7 @@
+Package: oodialog
+Version: 0.2.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: openOODA-tools <ops@openooda.org>
+Description: Sovereign TUI modal dialogue and input box interface engine in pure openOODA.

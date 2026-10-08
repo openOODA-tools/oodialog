@@ -4,7 +4,7 @@
 # "Removes oodialog binary, package installations, and cache."
 #
 # Usage:
-#   curl -fsSL https://openooda-toodialog.github.io/oodialog/uninstall.sh | bash
+#   curl -fsSL https://openooda-tools.github.io/oodialog/uninstall.sh | bash
 #   or: ./uninstall.sh [options]
 #
 # Options:

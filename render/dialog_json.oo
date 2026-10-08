@@ -1,0 +1,99 @@
+// # oodialog JSON Serialization Engine
+//
+// Logline: Converts dialog widget specifications, menu choices, and user input results into standard JSON documents.
+//
+// Setup: Demands no ambient authority; operates on pure immutable records.
+//
+// Beats:
+//   1. Escape strings safely for standard JSON compliance.
+//   2. Serialize MenuItem records into key-value JSON objects and arrays.
+//   3. Serialize DialogConfig specifications into structured JSON manifests.
+//   4. Deliver DialogResult serialization for MCP and CLI automation pipelines.
+
+import "core/dialog_types.oo";
+import "core/dialog_demo.oo";
+
+pub fn escape_json(s: String) -> String {
+    let n: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "\"" {
+            out = out + "\\\"";
+        } else if c == "\\" {
+            out = out + "\\\\";
+        } else if c == "\n" {
+            out = out + "\\n";
+        } else if c == "\t" {
+            out = out + "\\t";
+        } else if c == "\r" {
+            out = out + "\\r";
+        } else {
+            out = out + c;
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn items_to_json(items: List[MenuItem]) -> String {
+    let mut s: String = "[";
+    let n: Int = list_len(items);
+    let mut i: Int = 0;
+    while i < n {
+        if i > 0 {
+            s = s + ",";
+        }
+        let m: MenuItem = list_get(items, i);
+        s = s + "{\"tag\":\"" + escape_json(m.tag) + "\",\"item\":\"" + escape_json(m.item) + "\",\"selected\":" + (if m.selected { "true" } else { "false" }) + "}";
+        i = i + 1;
+    }
+    s = s + "]";
+    return s;
+}
+
+pub fn config_to_json(cfg: DialogConfig, items: List[MenuItem]) -> String {
+    let mut s: String = "{";
+    s = s + "\"kind\":\"" + escape_json(cfg.kind) + "\",";
+    s = s + "\"title\":\"" + escape_json(cfg.title) + "\",";
+    s = s + "\"backtitle\":\"" + escape_json(cfg.backtitle) + "\",";
+    s = s + "\"text\":\"" + escape_json(cfg.text) + "\",";
+    s = s + "\"height\":" + to_string(cfg.height) + ",";
+    s = s + "\"width\":" + to_string(cfg.width) + ",";
+    s = s + "\"gauge_percent\":" + to_string(cfg.gauge_percent) + ",";
+    s = s + "\"input_default\":\"" + escape_json(cfg.input_default) + "\",";
+    s = s + "\"theme\":\"" + escape_json(cfg.theme) + "\",";
+    s = s + "\"items\":" + items_to_json(items);
+    s = s + "}";
+    return s;
+}
+
+pub fn result_to_json(res: DialogResult) -> String {
+    let mut s: String = "{";
+    s = s + "\"exit_code\":" + to_string(res.exit_code) + ",";
+    s = s + "\"text_out\":\"" + escape_json(res.text_out) + "\",";
+    s = s + "\"selected_tags\":[";
+    let n: Int = list_len(res.selected_tags);
+    let mut i: Int = 0;
+    while i < n {
+        if i > 0 {
+            s = s + ",";
+        }
+        s = s + "\"" + escape_json(list_get(res.selected_tags, i)) + "\"";
+        i = i + 1;
+    }
+    s = s + "]}";
+    return s;
+}
+
+pub fn demo_to_json() -> String {
+    let mut s: String = "{";
+    s = s + "\"tool\":\"oodialog\",";
+    s = s + "\"version\":\"0.2.0\",";
+    s = s + "\"widgets\":[\"msgbox\",\"yesno\",\"inputbox\",\"menu\",\"checklist\",\"gauge\"],";
+    s = s + "\"menu_demo\":" + items_to_json(build_demo_menu_items()) + ",";
+    s = s + "\"checklist_demo\":" + items_to_json(build_demo_checklist_items());
+    s = s + "}";
+    return s;
+}

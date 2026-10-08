@@ -1,52 +1,74 @@
 // # oodialog Main Entry Point
 //
-// Logline: Renders interactive modal dialogues, input boxes, checklists, and file pickers.
+// Logline: Sovereign terminal modal dialogue and input box interface engine with dual-surface CLI and MCP stdio interfaces.
 //
-// Setup: Demands explicit capability tokens and standard argument list.
+// Setup: Demands &FsReadCap, &ProcessCap, and &EnvCap tokens for capability-bounded modal execution.
 //
 // Beats:
-//   1. Parse command-line options and dispatch --help, --version, or --mcp.
-//   2. Execute capability-bounded oodialog operations.
-//   3. Format and output structured results to standard output.
+//   1. Parse command-line options and dispatch --help, --version, --test, or --mcp.
+//   2. Dispatch interactive and demonstration modal showcase when --demo is specified.
+//   3. Render configured dialog modal box to standard output or JSON stream.
+//   4. Deliver appropriate POSIX exit code matching widget decisions.
 
-fn render_help() -> String {
-    return "oodialog 0.1.0 (openOODA sovereign theme & styling)\n"
-        + "usage: oodialog [options] [ARGUMENTS]...\n\n"
-        + "Renders interactive modal dialogues, input boxes, checklists, and file pickers.\n\n"
-        + "Options:\n"
-        + "  -h, --help           display this help and exit\n"
-        + "  -v, --version        output version information and exit\n"
-        + "      --json           output formatted as JSON Lines\n"
-        + "      --color <WHEN>   colorize output: auto, always, never [default: auto]\n"
-        + "      --theme <NAME>   override active oote palette\n"
-        + "      --mcp            run as Model Context Protocol stdio server\n";
-}
+import "core/dialog_demo.oo";
+import "render/dialog_view.oo";
+import "render/dialog_json.oo";
+import "ipc/dialog_opts.oo";
+import "ipc/mcp_serve.oo";
+import "anchor.oo";
 
-fn render_version() -> String {
-    return "oodialog 0.1.0 (openOODA sovereign theme & styling)\n";
-}
+fn main(
+    fr: &FsReadCap,
+    pr: &ProcessCap,
+    env: &EnvCap,
+    args: List[String]
+) -> Int {
+    let act: CliAction = parse_cli_args(args);
 
-fn main(args: List[String]) -> Int {
-    let num_args: Int = list_len(args);
-    let mut i: Int = 0;
-
-    while i < num_args {
-        let arg: String = list_get(args, i);
-        if arg == "-h" || arg == "--help" {
-            print(render_help());
-            return 0;
-        }
-        if arg == "-v" || arg == "--version" {
-            print(render_version());
-            return 0;
-        }
-        if arg == "--mcp" {
-            print("{\"jsonrpc\":\"2.0\",\"result\":{\"status\":\"ready\",\"tool\":\"oodialog\"}}\n");
-            return 0;
-        }
-        i = i + 1;
+    if act.show_help {
+        print_help();
+        return 0;
     }
 
-    print("oodialog: sovereign capability-bounded utility ready\n");
+    if act.show_version {
+        print_version();
+        return 0;
+    }
+
+    if act.is_mcp {
+        run_mcp_server(fr);
+        return 0;
+    }
+
+    if act.run_test {
+        if !run_all_tests() {
+            println("oodialog: internal anchor tests FAILED");
+            return 1;
+        }
+        println("oodialog: internal anchor tests PASSED");
+        return 0;
+    }
+
+    if act.config.demo_mode {
+        if act.config.json_output {
+            print(demo_to_json() + "\n");
+        } else {
+            print(build_demo_document());
+        }
+        return 0;
+    }
+
+    if act.config.json_output {
+        print(config_to_json(act.config, act.items) + "\n");
+        return 0;
+    }
+
+    let rendered: String = render_view(act.config, act.items);
+    print(rendered);
+
+    if act.config.kind == "yesno" && act.config.default_no {
+        return 1;
+    }
+
     return 0;
 }

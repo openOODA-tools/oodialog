@@ -1,0 +1,59 @@
+// # oodialog Modal & Widget Data Types
+//
+// Logline: Data structures representing terminal dialog modals, menu items, widget parameters, and execution results.
+//
+// Setup: Demands no ambient authority; defines plain immutable value records.
+//
+// Beats:
+//   1. Declare MenuItem record modeling menu, checklist, and radiolist options.
+//   2. Declare DialogConfig record capturing widget type, geometry, titles, and flags.
+//   3. Declare DialogResult record capturing return code, text payload, and selected tags.
+//   4. Deliver default_dialog_config factory initializing safe standard defaults.
+
+pub type MenuItem = struct {
+    tag: String,
+    item: String,
+    selected: Bool
+};
+
+pub type DialogConfig = struct {
+    kind: String,           // msgbox, yesno, infobox, inputbox, menu, checklist, radiolist, gauge, textbox
+    title: String,
+    backtitle: String,
+    text: String,
+    height: Int,
+    width: Int,
+    list_height: Int,
+    gauge_percent: Int,
+    input_default: String,
+    default_no: Bool,
+    ascii_lines: Bool,
+    theme: String,
+    json_output: Bool,
+    demo_mode: Bool
+};
+
+pub type DialogResult = struct {
+    exit_code: Int,         // 0 = OK/Yes, 1 = Cancel/No, 255 = ESC/Error
+    text_out: String,
+    selected_tags: List[String]
+};
+
+pub fn default_dialog_config() -> DialogConfig {
+    return DialogConfig {
+        kind: "msgbox",
+        title: "",
+        backtitle: "",
+        text: "",
+        height: 0,
+        width: 0,
+        list_height: 0,
+        gauge_percent: 0,
+        input_default: "",
+        default_no: false,
+        ascii_lines: false,
+        theme: "ember",
+        json_output: false,
+        demo_mode: false
+    };
+}
